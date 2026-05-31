@@ -21,7 +21,11 @@ type Game = {
     rating: number;
 };
 
-export default function Games() {
+interface GameComponentProps {
+    onGamePress?: (game: any) => void;
+}
+
+export default function Games({ onGamePress }: GameComponentProps) {
     const [name, setName] = useState("");
     const [loading, setLoading] = useState(false);
     const [games, setGames] = useState<Game[]>([]);
@@ -67,6 +71,7 @@ export default function Games() {
             return;
         }
 
+        setLoading(true);
         debounceTimer.current = setTimeout(() => {
             fetchGame(name);
         }, 500);
@@ -101,11 +106,22 @@ export default function Games() {
         }
     };
 
+    const handlePress = (item: Game) => {
+        if (onGamePress) {
+            onGamePress(item);
+        } else {
+            router.push({
+                pathname: "/rate",
+                params: { id: item.id.toString(), name: item.name, background_image: item.background_image }
+            });
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <FlatList
                 data={games}
-                keyExtractor={(item) => item.id.toString()} 
+                keyExtractor={(item) => item.id.toString()}
                 contentContainerStyle={styles.scrollContent}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 keyboardShouldPersistTaps="handled"
@@ -114,8 +130,6 @@ export default function Games() {
                 keyboardDismissMode="on-drag"
                 ListHeaderComponent={
                     <>
-                        <Text style={styles.title}>Gamind_</Text>
-
                         <View style={styles.searchContainer}>
                             <TextInput
                                 style={styles.input}
@@ -136,16 +150,7 @@ export default function Games() {
                 renderItem={({ item }) => (
                     <TouchableOpacity
                         style={styles.gameCard}
-                        onPress={() => {
-                            router.push({
-                                pathname: "/rate",
-                                params: {
-                                    id: item.id.toString(),
-                                    name: item.name,
-                                    background_image: item.background_image
-                                }
-                            });
-                        }}
+                        onPress={() => handlePress(item)}
                     >
                         <Image
                             source={{ uri: item.background_image }}
@@ -174,7 +179,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000000',
     },
-    
+
     keyboardView: {
         flex: 1,
     },
