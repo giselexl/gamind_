@@ -45,9 +45,9 @@ export const getGameDetails = async (id: number) => {
 
 
 
-export const searchGames = async (query: string) => {
+export const searchGames = async (query: string, page = 1, page_size = 10) => {
   try {
-    const url = `${BASE_URL}/games?key=${RAWG_KEY}&search=${query}&page_size=10`;
+    const url = `${BASE_URL}/games?key=${RAWG_KEY}&search=${query}&page=${page}&page_size=${page_size}`;
     const response = await fetch(url);
     const data = await response.json();
     return data.results || [];
