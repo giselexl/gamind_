@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Game from '../../components/game';
 import {
   StyleSheet,
@@ -9,12 +9,14 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert
+  Alert,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db } from '../../firebaseConfig';
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useIsFocused } from '@react-navigation/native';
 
 export default function RateScreen() {
   const router = useRouter();
@@ -23,6 +25,17 @@ export default function RateScreen() {
   const [nota, setNota] = useState<number>(0);
   const [favorito, setFavorito] = useState<boolean>(false);
   const [review, setReview] = useState<string>('');
+  const from = params.from ? String(params.from).trim() : "";
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (!isFocused) {
+      router.setParams({ id: '', name: '', background_image: '', from: '' });
+      setNota(0);
+      setFavorito(false);
+      setReview('');
+    }
+  }, [isFocused]);
 
   const Postar = async () => {
     if (nota === 0) {
@@ -42,6 +55,7 @@ export default function RateScreen() {
       });
 
       Alert.alert("Sucesso!", "Sua avaliação foi salva!");
+      router.setParams({ id: '', name: '', background_image: '', from: '' });
       router.push('/profile');
     } catch (error) {
       console.error("Erro ao salvar jogo: ", error);
@@ -50,10 +64,23 @@ export default function RateScreen() {
   };
 
   // se não houver um jogo selecionado, exibe a tela de busca para escolher um jogo
-  if (!id) {
+  const hasSelectedGame = id && id !== "" && (from === "detail" || from === "search");
+  if (!hasSelectedGame) {
     return (
       <View style={styles.container}>
-        <Game />
+        <View style={styles.headerSearchOnly}>
+          <Text style={styles.headerTitlePage}>Avaliar Jogo</Text>
+        </View>
+        <View style={styles.onGamePress}>
+          <Game onGamePress={(item) => {
+            router.setParams({
+              id: item.id.toString(),
+              name: item.name,
+              background_image: item.background_image,
+              from: "search"
+            });
+          }} />
+        </View>
       </View>
     );
   }
@@ -67,7 +94,20 @@ export default function RateScreen() {
         imageStyle={{ opacity: 0.4 }}
         resizeMode="cover"
       >
-        <TouchableOpacity style={styles.backButton} onPress={() => router.setParams({ id: '', name: '', background_image: '' })}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => {
+            if (from === "detail") {
+              router.setParams({ id: '', name: '', background_image: '', from: '' });
+              router.back();
+            } else {
+              router.setParams({ id: '', name: '', background_image: '', from: '' });
+              setNota(0);
+              setFavorito(false);
+              setReview('');
+            }
+          }}
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 
@@ -137,6 +177,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#050505'
+  },
+
+  onGamePress: {
+    flex: 1, 
+    paddingHorizontal: 20
+  },
+
+  headerSearchOnly: {
+    paddingTop: Platform.OS === 'web' ? 30 : 60,       
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  
+  headerTitlePage: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
 
   headerBackground: {
@@ -238,7 +295,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     borderRadius: 25
   },
-  
+
   btnTexto: {
     color: '#fff',
     fontWeight: 'bold',

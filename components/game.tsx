@@ -112,7 +112,12 @@ export default function Games({ onGamePress }: GameComponentProps) {
         } else {
             router.push({
                 pathname: "/rate",
-                params: { id: item.id.toString(), name: item.name, background_image: item.background_image }
+                params: { 
+                    id: item.id.toString(), 
+                    name: item.name, 
+                    background_image: item.background_image,
+                    from: "search"
+                }
             });
         }
     };
