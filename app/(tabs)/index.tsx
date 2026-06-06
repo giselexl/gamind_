@@ -6,11 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { getGamesByFilter, searchGames } from "../../services/gameApi";
+import { getGamesByFilter } from "../../services/gameApi";
+import { useRouter } from "expo-router";
+import GameComponent from "../../components/game";
+import { Ionicons } from '@expo/vector-icons';
 
 interface Game {
   id: number;
@@ -20,13 +22,10 @@ interface Game {
 }
 
 export default function HomeScreen() {
-  const [sections, setSections] = useState<{ title: string; data: Game[] }[]>(
-    [],
-  );
-  const [searchResults, setSearchResults] = useState<Game[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const [sections, setSections] = useState<{ title: string; data: Game[] }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   useEffect(() => {
     loadDefaultHome();
@@ -47,34 +46,31 @@ export default function HomeScreen() {
     setLoading(false);
   }
 
-  async function handleSearch() {
-    if (searchQuery.trim() === "") {
-      setIsSearching(false);
-      return;
-    }
-    setLoading(true);
-    setIsSearching(true);
-    const results = await searchGames(searchQuery);
-    setSearchResults(results);
-    setLoading(false);
-  }
+  const goToGameDetails = (game: any) => {
+    router.push({
+      pathname: "/gameDetails",
+      params: {
+        id: game.id.toString(),
+        name: game.name,
+        background_image: game.background_image,
+      },
+    });
+  };
 
   const renderGameCard = ({ item }: { item: Game }) => (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={() => goToGameDetails(item)}>
       <Image
-        source={{
-          uri: item.background_image || "https://via.placeholder.com/150",
-        }}
+        source={{ uri: item.background_image || "https://via.placeholder.com/150" }}
         style={styles.poster}
       />
       <Text style={styles.gameName} numberOfLines={1}>
         {item.name}
       </Text>
       <Text style={styles.rating}>⭐ {item.rating?.toFixed(1) || "N/A"}</Text>
-    </View>
+    </TouchableOpacity>
   );
 
-  if (loading && !isSearching) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#007AFF" />
@@ -84,46 +80,31 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerTitle}>Gamind</Text>
 
-      {/* Barra de Pesquisa */}
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Pesquise aqui..."
-          placeholderTextColor="#050505"/// tem mudar aqui depois
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-        />
-        {isSearching && (
-          <TouchableOpacity
-            onPress={() => {
-              setIsSearching(false);
-              setSearchQuery("");
-            }}
-          >
-            <Text style={styles.clearText}>Cancelar</Text>
-          </TouchableOpacity>
-        )}
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={() => setShowSearch(false)} activeOpacity={0.7}>
+          <Text style={styles.headerTitle}>
+            {showSearch ? "Buscar Jogo" : "Gamind_"}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleSearchBtn}
+          onPress={() => setShowSearch(!showSearch)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={showSearch ? "close" : "search"}
+            size={24}
+            color="#fff"
+          />
+        </TouchableOpacity>
       </View>
 
-      {isSearching ? (
-        <FlatList
-          data={searchResults}
-          keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { width: "45%", marginBottom: 20 }]}>
-              <Image
-                source={{ uri: item.background_image }}
-                style={[styles.poster, { width: "100%" }]}
-              />
-              <Text style={styles.gameName}>{item.name}</Text>
-            </View>
-          )}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-        />
+      {showSearch ? (
+        <View style={{ flex: 1, paddingHorizontal: 20 }}>
+          <GameComponent onGamePress={goToGameDetails} />
+        </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false}>
           {sections.map((section, index) => (
@@ -147,43 +128,34 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#050505", paddingTop: 60 },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#050505",
+  container: { flex: 1, backgroundColor: "#050505", paddingTop: 20 },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050505" },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingRight: 20,
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 32,
     fontWeight: "bold",
     color: "#fff",
-    marginLeft: 20,
-    marginBottom: 10,
+    marginLeft: 20
   },
-  searchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  toggleSearchBtn: {
+    backgroundColor: '#1A1A1A',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#222',
   },
-  searchInput: {
-    flex: 1,
-    backgroundColor: "#050505", /// tem mudar aqui depois
-    color: "#fff",
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-  },
-  clearText: { color: "#007AFF", marginLeft: 15, fontWeight: "bold" },
+  toggleText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
   rowContainer: { marginBottom: 25 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginLeft: 20,
-    marginBottom: 15,
-  },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#fff", marginLeft: 20, marginBottom: 15 },
   card: { width: 140, marginRight: 15 },
   poster: { width: 140, height: 190, borderRadius: 12 },
   gameName: { color: "#fff", marginTop: 8, fontSize: 13, fontWeight: "600" },
