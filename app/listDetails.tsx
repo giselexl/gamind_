@@ -14,10 +14,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { db } from '../firebaseConfig';
-import { collection, query, orderBy, getDocs, doc, getDoc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { db, auth } from '../firebaseConfig'; // CORRIGIDO: Importado 'auth' para filtrar pelo usuário atual
+import { collection, query, orderBy, where, getDocs, doc, getDoc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore'; // CORRIGIDO: Importado 'where'
 import * as Clipboard from 'expo-clipboard';
-import GameComponent from '../components/game'; // Importado para permitir a busca de novos jogos
+import GameComponent from '../components/game'; 
 
 export default function ListDetailsScreen() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function ListDetailsScreen() {
   const [removendoJogo, setRemovendoJogo] = useState(false);
   const [modalCompartilharVisivel, setModalCompartilharVisivel] = useState(false);
   
-  // NOVO: Estados para adição de novos jogos
+  // Estados para adição de novos jogos
   const [modalAdicionarJogoVisivel, setModalAdicionarJogoVisivel] = useState(false);
   const [adicionandoJogo, setAdicionandoJogo] = useState(false);
   
@@ -52,12 +52,37 @@ export default function ListDetailsScreen() {
     setCarregando(true);
     try {
       if (idLista === 'auto_favoritos') {
-        const qAvaliacoes = query(collection(db, "avaliacoes_jogos"), orderBy("dataPostagem", "desc"));
-        const snapshot = await getDocs(qAvaliacoes);
+        const usuarioAtual = auth.currentUser;
+        if (!usuarioAtual) {
+          console.warn("Nenhum usuário autenticado encontrado.");
+          setCarregando(false);
+          return;
+        }
+
+        // CORRIGIDO: Query agora filtra estritamente pelo 'userId' do usuário logado
+        let snapshot;
+        try {
+          const qAvaliacoes = query(
+            collection(db, "avaliacoes_jogos"), 
+            where("userId", "==", usuarioAtual.uid),
+            orderBy("dataPostagem", "desc")
+          );
+          snapshot = await getDocs(qAvaliacoes);
+        } catch (error) {
+          // Fallback caso falte criar o índice composto no Firestore (orderBy + where)
+          console.warn("Falha ao ordenar. Buscando favoritos sem ordenação.");
+          const qFallback = query(
+            collection(db, "avaliacoes_jogos"), 
+            where("userId", "==", usuarioAtual.uid)
+          );
+          snapshot = await getDocs(qFallback);
+        }
+
         const favs: any[] = [];
         snapshot.forEach(d => {
           const data = d.data();
-          if (data.favorito) {
+          // Garante que é estritamente true (seja booleano ou string)
+          if (data.favorito === true || data.favorito === "true") {
             favs.push({
               id: data.jogoId,
               name: data.nomeJogo,
@@ -66,9 +91,10 @@ export default function ListDetailsScreen() {
             });
           }
         });
+
         setLista({
           id: 'auto_favoritos',
-          nome: '❤️ Meus Favoritos',
+          nome: 'Meus Favoritos',
           descricao: 'Lista dos jogos que marquei como favorito.',
           isAuto: true,
           jogos: favs
@@ -89,7 +115,6 @@ export default function ListDetailsScreen() {
     }
   };
 
-  // NOVO: Função para inserir um jogo selecionado no Firestore e atualizar a UI
   const handleAdicionarJogo = async (jogo: any) => {
     if (lista?.isAuto) {
       if (Platform.OS === 'web') window.alert("Não é possível adicionar jogos diretamente a uma lista automática.");
@@ -97,7 +122,6 @@ export default function ListDetailsScreen() {
       return;
     }
 
-    // Verifica se o jogo já está na lista atual para evitar duplicatas
     const jogoJaExiste = lista?.jogos?.some((j: any) => j.id.toString() === jogo.id.toString());
     if (jogoJaExiste) {
       if (Platform.OS === 'web') window.alert("Este jogo já faz parte desta lista.");
@@ -118,7 +142,6 @@ export default function ListDetailsScreen() {
         jogos: arrayUnion(novoJogoObjeto)
       });
 
-      // Atualiza o estado local imediatamente
       setLista((prev: any) => ({
         ...prev,
         jogos: prev.jogos ? [...prev.jogos, novoJogoObjeto] : [novoJogoObjeto]
@@ -251,7 +274,6 @@ export default function ListDetailsScreen() {
         <View style={styles.infoMetaRow}>
           <Text style={styles.contador}>{lista?.jogos?.length || 0} jogos na lista</Text>
           
-          {/* NOVO: Botão de adicionar jogo inserido abaixo da descrição da lista */}
           {!lista?.isAuto && (
             <TouchableOpacity 
               style={styles.btnAdicionarJogoInline} 
@@ -291,7 +313,7 @@ export default function ListDetailsScreen() {
         }
       />
 
-      {/* MODAL NOVO: Adicionar Jogo Posterior */}
+      {/* MODAL: Adicionar Jogo */}
       <Modal 
         animationType="slide" 
         transparent={true} 
@@ -320,7 +342,7 @@ export default function ListDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Modal de confirmação de exclusão */}
+      {/* Modal de exclusão */}
       <Modal animationType="fade" transparent={true} visible={modalExcluirVisivel} onRequestClose={() => setModalExcluirVisivel(false)}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.modalAlertContent}>
@@ -343,7 +365,7 @@ export default function ListDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Modal de confirmação para remoção de jogo da lista */}
+      {/* Modal de remoção de jogo */}
       <Modal animationType="fade" transparent={true} visible={modalRemoverJogoVisivel} onRequestClose={() => setModalRemoverJogoVisivel(false)}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.modalAlertContent}>
@@ -366,7 +388,7 @@ export default function ListDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Modal para edição das informações da lista */}
+      {/* Modal de Edição */}
       <Modal animationType="slide" transparent={true} visible={modalEditarVisivel} onRequestClose={() => setModalEditarVisivel(false)}>
         <View style={styles.modalOverlayBottom}>
           <View style={styles.modalEditContent}>
@@ -387,7 +409,7 @@ export default function ListDetailsScreen() {
         </View>
       </Modal>
 
-      {/* Modal para compartilhamento de link via QR Code */}
+      {/* Modal de Compartilhamento */}
       <Modal animationType="fade" transparent={true} visible={modalCompartilharVisivel} onRequestClose={() => setModalCompartilharVisivel(false)}>
         <View style={styles.modalOverlayCenter}>
           <View style={styles.modalShareContent}>
@@ -427,18 +449,13 @@ const styles = StyleSheet.create({
   descricao: { fontSize: 15, color: '#BBB', lineHeight: 22, marginBottom: 15 },
   infoMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   contador: { fontSize: 13, color: '#007AFF', fontWeight: 'bold' },
-  
-  // Estilização do novo botão de adição alinhado na metarow
   btnAdicionarJogoInline: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007AFF', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
   btnAdicionarJogoTexto: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  
   jogoCard: { width: '31%', backgroundColor: '#111', borderRadius: 10, marginBottom: 15, overflow: 'hidden', borderWidth: 1, borderColor: '#1A1A1A', position: 'relative' },
   jogoPoster: { width: '100%', height: 140, resizeMode: 'cover' },
   jogoNome: { color: '#fff', fontSize: 11, fontWeight: 'bold', padding: 8, textAlign: 'center' },
   btnRemoverJogoCard: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 12, padding: 4, zIndex: 10 },
-  
   emptyText: { color: '#888', textAlign: 'center', marginTop: 40, fontSize: 16 },
-
   modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalAlertContent: { width: '100%', backgroundColor: '#1A1A1A', borderRadius: 20, padding: 25, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
   iconCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255, 68, 68, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
@@ -449,7 +466,6 @@ const styles = StyleSheet.create({
   btnCancelarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   btnExcluirConfirmar: { flex: 1, paddingVertical: 14, borderRadius: 10, backgroundColor: '#ff4444', alignItems: 'center' },
   btnExcluirText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
   modalOverlayBottom: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalEditContent: { backgroundColor: '#111', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, paddingBottom: Platform.OS === 'ios' ? 40 : 25, borderTopWidth: 1, borderTopColor: '#222' },
   modalEditHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
@@ -459,7 +475,6 @@ const styles = StyleSheet.create({
   textArea: { height: 100, textAlignVertical: 'top' },
   btnSalvar: { backgroundColor: '#007AFF', paddingVertical: 15, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   btnSalvarText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-
   modalShareContent: { width: '100%', backgroundColor: '#1A1A1A', borderRadius: 20, padding: 25, borderWidth: 1, borderColor: '#333' },
   modalShareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   modalShareTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },

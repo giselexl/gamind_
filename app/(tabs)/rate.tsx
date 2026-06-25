@@ -55,7 +55,7 @@ export default function RateScreen() {
     }
 
     try {
-      // ALTERADO: Agora a postagem inclui o vínculo 'userId' essencial para o perfil filtrar
+      //Agora a postagem inclui o vínculo 'userId'  para o perfil filtrar
       await addDoc(collection(db, "avaliacoes_jogos"), {
         userId: usuarioAtual.uid, // Tag indispensável vinculada ao Google Auth
         userEmail: usuarioAtual.email,
@@ -136,17 +136,6 @@ export default function RateScreen() {
       <View style={styles.content}>
         <Text style={styles.titulo}>{name}</Text>
 
-        {/* TODO: add real game stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons name="time-outline" size={16} color="#888" />
-            <Text style={styles.statText}> 10h jogadas</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Ionicons name="trophy-outline" size={16} color="#888" />
-            <Text style={styles.statText}> 15 conquistas</Text>
-          </View>
-        </View>
 
         <TextInput
           style={styles.inputReview}

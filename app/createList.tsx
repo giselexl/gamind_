@@ -54,7 +54,7 @@ export default function CreateListScreen() {
 
     setSalvando(true);
     try {
-      // Correção estrutural: Adicionado 'userId' para vincular a lista ao usuário correto
+      // 'userId' para vincular a lista ao usuário correto
       await addDoc(collection(db, "listas_jogos"), {
         userId: usuarioAtual.uid, 
         nome: nomeLista.trim(),

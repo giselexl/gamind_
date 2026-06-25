@@ -20,3 +20,5 @@ export const db = getFirestore(app);
 
 // Exporta o 'auth' para as telas de login/layout
 export const auth = getAuth(app);
+
+console.log("TESTE DE CONEXÃO -> ProjectID:", firebaseConfig.projectId);
